@@ -28,9 +28,11 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import UnivariateSpline, interp1d
 import copy
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, DBSCAN,MiniBatchKMeans
 from scipy import *
 from scipy.misc import derivative
+from sklearn import metrics
+from collections import Counter
 
 class MyShape(AbstractShape):
     # change this class with anything you need to implement the shape
@@ -65,18 +67,13 @@ class Assignment5:
         The area of the shape.
 
         """
-        points = [contour() for i in range(10000)]
+        points = contour(10000)
         hull = ConvexHull(points)
-        area = np.float32(hull.area / 2)
+        area = np.float32(hull.volume)
         return area
 
 
     #
-    def distances(self,point):
-        x = point[0]
-        y = point[1]
-        d = np.sqrt(x**2 + y**2)
-        return d
     def plot(self,points):
         x_lst = []
         y_lst = []
@@ -85,25 +82,30 @@ class Assignment5:
             y_lst.append(p[1])
         plt.scatter(x_lst,y_lst)
         plt.show()
-    def fit_line(self,point1,point2):
-        x1, x2, y1, y2 = point1[0], point2[0], point1[1], point2[1]
-        param = np.polyfit([x1, x2], [y1, y2], 1)
-        a = param[0]
-        b = param[1]
-        return lambda x: a * x + b
-
-    def get_coords(self, points):
-        x_lst = []
-        y_lst = []
-        for p in points:
-            x_lst.append(p[0])
-            y_lst.append(p[1])
-        return x_lst, y_lst
 
     def k_means(self,points, k):
-        kmeans = KMeans(n_clusters=k, random_state=0).fit(points)
+        kmeans = MiniBatchKMeans(n_clusters=k, random_state=0,batch_size=100).fit(points)
+        #kmeans = KMeans(n_clusters=k, random_state=0).fit(points)
         return kmeans.cluster_centers_
 
+    from collections import Counter
+
+    def most_frequent(self,List):
+        occurence_count = Counter(List)
+        occurence_list = []
+        for item in occurence_count.items():
+            num_of_occurences = item[1]
+            if num_of_occurences/len(List) >= 0.1:
+                occurence_list.append(item[0])
+        return occurence_list
+
+    def clear_nosie(self,points):
+        num_of_points= len(points)
+        points1 = DBSCAN(eps=0.1,min_samples=10).fit(points)
+        labels = points1.labels_
+        most_frequent_labels = self.most_frequent(labels)
+        points = [points[i] for i in range(num_of_points) if labels[i] in most_frequent_labels]
+        return points
     def fit_shape(self, sample: callable, maxtime: float) -> AbstractShape:
         """
         Build a function that accurately fits the noisy data points sampled from
@@ -127,31 +129,33 @@ class Assignment5:
         area_lst =[]
         a_list = []
         num_of_means = []
-        samples = [sample() for i in range(4000)]
-        self.plot(samples)
-        for i in range(3, 35):
+        samples = [sample() for i in range(1500)]
+        unnoise_semp = self.clear_nosie(samples)
+        for i in range(3, 35,1):
             if time.time() - T > 0.95 * maxtime:
                 return MyShape(np.average(area_lst))
             num_of_means.append(i)
-            centers = list(self.k_means(samples,k=i))
+            centers = list(self.k_means(unnoise_semp,k=i))
             hull = ConvexHull(centers)
-            a = np.float64(hull.area/2)
+            a = np.float64(hull.volume)
             area_lst.append(a)
         coefs = np.polyfit(num_of_means, area_lst,3)
+
         def fited_func(x):
-            return coefs[0] * x**3 + coefs[1] *x**2 + coefs[2] * x + coefs[3]
+            return coefs[0] * x**3 + coefs[1] * x**2 + coefs[2] * x + coefs[3]
         dev_lst = []
-        for i in range(3,35):
+        for i in range(3,35,1):
             dev_at_point = derivative(fited_func, i, dx=1e-6)
             dev_lst.append(dev_at_point)
         sweet_spot = min(dev_lst)
         sweet_spot_index = dev_lst.index(sweet_spot)
         k_list = []
-        for i in range(sweet_spot_index - 2, sweet_spot_index + 2):
-            area = area_lst[i]
-            k = i
-            a_list.append(area)
-            k_list.append(k)
+        for i in range(sweet_spot_index - 1, sweet_spot_index + 2):
+            if i <= len(area_lst) - 1:
+                area = area_lst[i]
+                k = i
+                a_list.append(area)
+                k_list.append(k)
         coefs = np.polyfit(k_list, a_list, 3)
         poly = np.poly1d(coefs)
         samples_range = np.linspace(k_list[0],k_list[-1],100)
