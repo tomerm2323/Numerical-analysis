@@ -1,83 +1,128 @@
-"""
-In this assignment you should find the intersection points for two functions.
-"""
-
 import numpy as np
 import time
 import random
 from collections.abc import Iterable
-
+from scipy.optimize import bisect
 
 class Assignment2:
     def __init__(self):
-        """
-        Here goes any one time calculation that need to be made before 
-        solving the assignment for specific functions. 
-        """
-
         pass
+
+    import numpy as np
+    def gus_for_bisection(self, funcion, point):
+        for i in range(100):
+            b1 = point + i/(i + 5)
+            b2 = point - i/(i + 5)
+            if funcion(point) * funcion(b1) < 0:
+                return b1
+            elif funcion(point) * funcion(b2) < 0:
+                return b2
+
+        return None
+
+    def secant(self,f, x0, x1, maxerr):
+        fx0 = f(x0)
+        try:
+            fx1 = f(x1)
+        except:
+            return None
+        iter = 0
+        while abs(fx1) > maxerr:
+            if iter == 100:
+                return None
+            iter += 1
+
+            # do calculation
+            deltay = fx1 - fx0
+            if deltay != 0:
+                x2 = (x0 * fx1 - x1 * fx0) / (fx1 - fx0)
+            # shift variables (prepare for next loop)
+                x0, x1 = x1, x2
+                fx0 = fx1
+                try:
+                    fx1 = f(x2)
+                except:
+                    return None
+
+            else:
+                return None
+
+        return x1
+
 
     def dev_at_point(self, func, point):
         dx = 0.0000001
-        df = func(point) - func(point - dx)
+        df = np.float64(func(point) - func(point - dx))
         return round(df/(dx))
 
     def newton_raphson(self, g, guss, delta, lower_range_limit,upper_range_limit):
         z = guss
         iterations = 0
-        # largest_x_visited = guss
+        
         while abs(g(z)) > delta and iterations < 100:
             dev = self.dev_at_point(g, z)
             if dev == 0:
-                return None
+                root = self.secant(g, x0=z, x1=0.5 + z, maxerr=delta)
+                if root is None or root < lower_range_limit or root > upper_range_limit:
+                    root = None
+                return root
             z = z - g(z)/dev
             iterations += 1
-
-            # if z > largest_x_visited:
-            #     largest_x_visited = z
 
         if z > upper_range_limit or z < lower_range_limit or abs(g(z)) > delta:
             return None
         return z
-    # def redundent(self,points):
-    #     points.sort()
-    #     for i in range(len(points)):
-    #         if round(points[i]) == round(points[i + 1]) and self.dev_at_point(func, points[i])*self.dev_at_point(func,points[i+1]) > 0:
-    #             doubles.append(roots[i+1])
-    #         if points[i + 1] == points[-1]:
-    #             break
 
+    def select_roots(self, roots, func, maxerr):
 
-
-    def no_double(self, roots, func):
-        if len(roots) > 0:
-            roots.append(roots[0])
-        else:
-            return []
-        doubles =[]
         roots.sort()
-        for i in range(len(roots)):
-            if round(roots[i]) == round(roots[i + 1]) and self.dev_at_point(func, roots[i])*self.dev_at_point(func, roots[i+1]) > 0:
-                doubles.append(roots[i+1])
-            if roots[i + 1] == roots[-1]:
-                break
+        real_roots = [roots[0]]
+        compering_point = roots[0]
+        
+        for i in range(1,len(roots)):
+            x1 = compering_point
+            x2 = roots[i]
+            deltaX = abs(x1 - x2) ## |Xcompre - Xi|
+            y1 = func(compering_point)
+            y2 = func(roots[i])
+            deltaY = y1 is not None and y2 is not None and abs(y1 - y2) #|f(Xcompre) - f(Xi)|
+            
+            if deltaX > maxerr and deltaY < maxerr:  # Different points have different roots
+                compering_point = roots[i]
+                real_roots.append(roots[i])
+
+        real_roots.sort()
+        return real_roots
 
 
-        for root in doubles:
-            roots.remove(root)
-        return roots
-    # def guss(self,curr_point,func,upper_bound):
-    #
-    #     guss = curr_point
-    #     iteration = 0
-    #     while self.dev_at_point(point=guss,func=func) * self.dev_at_point(point=curr_point,func=func) > 0:
-    #         guss = np.random.uniform(curr_point, upper_bound + 0.01)
-    #         iteration += 1
-    #         if iteration == 40:
-    #             break
-    #
-    #     return guss
 
+    def no_double(self, roots, func,maxeror):
+            if len(roots) == 0:
+                return []
+            
+            points_to_check = [roots[0]]
+            compering_point = roots[0]
+            
+            for i in range(1, len(roots)):
+                f1 = func(compering_point)
+                f2 = func(roots[i])
+                deltaX = abs(compering_point - roots[i])  ## |Xcompre - Xi|
+                dev1 = self.dev_at_point(func,compering_point)
+                dev2 = self.dev_at_point(func,roots[i])
+                
+                if f1 * f2 < 0:  # The Intermediate value theorem holds
+                    points_to_check.append(roots[i])
+                    compering_point = roots[i]
+                    
+                elif deltaX > maxeror and dev1 * dev2 <= 0:  # Close but with derivatives in the opposite sign
+                    points_to_check.append(roots[i])
+                    compering_point = roots[i]
+                    
+                elif abs(f2) <= maxeror:  # A point very close to zero
+                    points_to_check.append(roots[i])
+                    compering_point = roots[i]
+                    
+            return points_to_check
 
 
     def intersections(self, f1: callable, f2: callable, a: float, b: float, maxerr=0.001) -> Iterable:
@@ -112,106 +157,24 @@ class Assignment2:
 
         """
 
-
-
         g = lambda x: f1(x) - f2(x)
-        roots = []
-        guss = a
-        points = list(np.random.uniform(a,b, 2500 + round(b-a)))
-        points = self.no_double(points, g)
+        yroots = []
+        #xroots = []
+
+        points = list(np.linspace(a, b, 2500 + round(b-a)))
+        points = self.no_double(points, g, maxerr)
 
         for point in points:
-
             root = self.newton_raphson(g, point, maxerr, a, b)
             if root is not None:
-                roots.append(root)
-            # else:
-            #     if len(roots) > 0:
-            #         guss = roots[0]
-            #
-            #     else:
-            #         guss = b
-            #
-            # guss = self.guss(guss, g, b)
-        roots = self.no_double(roots, g)
+                yroots.append(root)
+              #  xroots.append(point)
+
+        if len(yroots) > 0:
+            roots = self.select_roots(yroots, g, maxerr)
+
+        else:
+            return []
 
         return list(set(roots))
 
-
-##########################################################################
-
-
-import unittest
-from sampleFunctions import *
-from tqdm import tqdm
-
-
-class TestAssignment2(unittest.TestCase):
-
-
-
-    def test_sqr(self):
-
-        ass2 = Assignment2()
-
-        f1 = np.poly1d([-1, 0, 1])
-        f2 = np.poly1d([1, 0, -1])
-
-        X = ass2.intersections(f1, f2, -1, 1, maxerr=0.001)
-
-        for x in X:
-            self.assertGreaterEqual(0.001, abs(f1(x) - f2(x)))
-        print('Test1 roots: ')
-        print(X)
-
-    def test_poly(self):
-        t = time.time()
-        ass2 = Assignment2()
-        f1 = lambda x:  8*np.sin(5*x) -np.cos(x/7)*x + x + 5
-        f2 = lambda x: 0
-
-        X = ass2.intersections(f1, f2, -10, 44, maxerr=0.005)
-
-        for x in X:
-            self.assertGreaterEqual(0.005, abs(f1(x) - f2(x)))
-        t = time.time() - t
-        print('Test2 roots: ')
-        print(X)
-        print('Run Time: ')
-        print(t)
-
-    def test_sin(self):
-        t = time.time()
-        ass2 = Assignment2()
-        f1 = lambda x: np.sin(100 * x)
-        f2 = lambda x: x
-
-        X = ass2.intersections(f1, f2, -1, 1, maxerr=0.001)
-        print(len(X))
-        for x in X:
-            self.assertGreaterEqual(0.001, abs(f1(x) - f2(x)))
-        t = time.time() - t
-        print('Test3 roots: ')
-        print(X)
-        print('Run Time: ')
-        print(t)
-
-    def test_cos(self):
-        t = time.time()
-        ass2 = Assignment2()
-        f1 = lambda x: np.cos(x)
-        f2 = lambda x: np.sin(x)
-
-        X = ass2.intersections(f1, f2, -30, 30, maxerr=0.001)
-        print(len(X))
-        for x in X:
-            self.assertGreaterEqual(0.001, abs(f1(x) - f2(x)))
-        t = time.time() - t
-        print('Test3 roots: ')
-        print(X)
-        print('Run Time: ')
-        print(t)
-
-
-if __name__ == "__main__":
-    unittest.main()
