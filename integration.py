@@ -3,9 +3,9 @@
 import numpy as np
 import time
 import random
-from assignment2 import *
+from Intersections import *
 
-class Assignment3:
+class integration:
     def __init__(self):
         pass
     def intigrate_wrap(self,f,a,b,n):
@@ -69,7 +69,7 @@ class Assignment3:
             The area between function and the X axis
 
         """
-        root_finder = Assignment2()
+        root_finder = Intersections()
         intersacts = root_finder.intersections(f1, f2, 1, 100)
         intersacts.sort()
         g = lambda x: abs(f1(x) - f2(x))
