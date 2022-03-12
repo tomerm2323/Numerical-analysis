@@ -10,7 +10,7 @@ import copy
 
 
 
-class Assignment1:
+class Interpoolation:
     def __init__(self):
         self. curr_index = 0
         self.dic = {}
