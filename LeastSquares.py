@@ -3,7 +3,7 @@ import time
 import random
 
 
-class Assignment4A:
+class LeastSquares:
     def __init__(self):
         pass
 
