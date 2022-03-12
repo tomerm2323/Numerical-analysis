@@ -4,7 +4,7 @@ import random
 from collections.abc import Iterable
 from scipy.optimize import bisect
 
-class intersections:
+class Intersections:
     def __init__(self):
         pass
 
